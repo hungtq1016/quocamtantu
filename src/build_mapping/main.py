@@ -59,6 +59,7 @@ def load_finals():
 
     return result
 
+
 # =========================================================
 # TELEX MAP
 # =========================================================
@@ -129,7 +130,7 @@ def entering_change(s):
 
 
 def is_front_vowel(fin):
-    return fin.startswith(("e", "ee", "i", "ie", "ieu"))
+    return fin.startswith(("e", "ee", "i", "ie", "ieu", "y"))
 
 
 def is_valid_spelling(ini, fin):
@@ -174,9 +175,11 @@ def find_vowel_index(chars):
     for i, c in enumerate(chars):
         if c in PRIORITY_1:
             return i
+
     for i, c in enumerate(chars):
         if c in PRIORITY_2:
             return i
+
     for i, c in enumerate(chars):
         if c in PRIORITY_3:
             return i
@@ -194,7 +197,10 @@ def apply_tone(word, tone_char):
     if idx == -1:
         return word
 
-    chars[idx] = unicodedata.normalize("NFC", chars[idx] + TONE_MAP[tone_char])
+    chars[idx] = unicodedata.normalize(
+        "NFC", chars[idx] + TONE_MAP[tone_char]
+    )
+
     return "".join(chars)
 
 
@@ -216,6 +222,7 @@ def get_block_pos(uni_char):
     code = ord(uni_char)
     return (code - TONE_START) % BLOCK_SIZE
 
+
 # =========================================================
 # MAIN BUILD
 # =========================================================
@@ -234,9 +241,17 @@ def build():
 
         ini_telex = to_telex(ini)
 
+        # ===== TẠO DANH SÁCH INITIAL BIẾN THỂ =====
+        initial_variants = [ini_telex]
+
+        if ini_telex == "c":
+            initial_variants.append("k")
+            initial_variants.append("q")
+
         for f_idx, fin in enumerate(finals):
 
             fin_telex = to_telex(fin)
+
             base_code = TONE_START + (i_idx * len(finals) + f_idx) * BLOCK_SIZE
 
             for t in usable_tones:
@@ -245,57 +260,65 @@ def build():
                 tone_key = tone_keys[t]
 
                 fin_key = fin_telex
+
                 if t in (4, 8):
                     fin_key = entering_change(fin_key)
 
-                if not is_valid_spelling(ini_telex, fin_key):
-                    continue
+                for ini_variant in initial_variants:
 
-                key = ini_telex + fin_key + tone_key
+                    # ===== CHECK CHÍNH TẢ SAU KHI COPY =====
+                    if not is_valid_spelling(ini_variant, fin_key):
+                        continue
 
-                pos = get_block_pos(uni_char)
+                    key = ini_variant + fin_key + tone_key
 
-                if pos == 0 and REMOVE_BASE_KEY:
-                    continue
+                    pos = get_block_pos(uni_char)
 
-                if pos == 0:
-                    word = key
-                else:
-                    word = telex_to_vi(key)
+                    if pos == 0 and REMOVE_BASE_KEY:
+                        continue
 
-                if not is_valid_vietnamese(word):
-                    continue
+                    if pos == 0:
+                        word = key
+                    else:
+                        word = telex_to_vi(key)
 
-                weight = 1000 + len(key)
+                    if not is_valid_vietnamese(word):
+                        continue
 
-                output.append(f"{uni_char}\t{word}\t{weight}")
+                    weight = 1000 + len(key)
 
-                # alias initials
+                    output.append(f"{uni_char}\t{word}\t{weight}")
+
+                # ===== alias initials (giữ nguyên) =====
                 for alias in aliases:
                     alias_telex = to_telex(alias)
-                    if is_valid_spelling(alias_telex, fin_key):
-                        alias_key = alias_telex + fin_key + tone_key
-                        alias_word = telex_to_vi(alias_key)
 
-                        if is_valid_vietnamese(alias_word):
-                            output.append(
-                                f"{uni_char}\t{alias_word}\t{100 + len(alias_key)}"
-                            )
+                    if not is_valid_spelling(alias_telex, fin_key):
+                        continue
 
-                # i -> y alias
-                if fin == "i":
-                    y_key = ini_telex + "y" + tone_key
-                    y_word = telex_to_vi(y_key)
-                    if is_valid_vietnamese(y_word):
+                    alias_key = alias_telex + fin_key + tone_key
+                    alias_word = telex_to_vi(alias_key)
+
+                    if is_valid_vietnamese(alias_word):
                         output.append(
-                            f"{uni_char}\t{y_word}\t{100 + len(y_key)}"
+                            f"{uni_char}\t{alias_word}\t{100 + len(alias_key)}"
                         )
+
+                # ===== i -> y alias =====
+                if fin == "i":
+                    for ini_variant in initial_variants:
+                        y_key = ini_variant + "y" + tone_key
+                        y_word = telex_to_vi(y_key)
+
+                        if is_valid_vietnamese(y_word):
+                            output.append(
+                                f"{uni_char}\t{y_word}\t{100 + len(y_key)}"
+                            )
 
     with open(OUT_FILE, "w", encoding="utf-8") as f:
         f.write("\n".join(output))
 
     print("Done ->", OUT_FILE)
-
 
 # =========================================================
 if __name__ == "__main__":
