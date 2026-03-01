@@ -41,10 +41,6 @@ TONES = [
 ]
 
 
-PRIORITY_VOWELS = "ăâêôơư"
-ALL_VOWELS = "aeiouyăâêôơư"
-
-
 # =========================================
 def load_json(p):
     with open(p, encoding="utf-8") as f:
@@ -59,21 +55,39 @@ def convert_nhap(final):
 
 
 # =========================================
-# tone placement (chuẩn chính tả)
+# tone placement
 # =========================================
-def find_tone_index(chars):
-    vowels = [i for i, c in enumerate(chars) if c.lower() in ALL_VOWELS]
-    if not vowels:
-        return None
 
-    for i in vowels:
-        if chars[i].lower() in PRIORITY_VOWELS:
+SPECIAL_CLUSTERS = [
+    ("ươ", 1), 
+    ("ưa", 0),
+    ("uô", 1),
+    ("iê", 1),
+    ("yê", 1),
+]
+
+
+PRIORITY = "ăâêôơư"
+ALL_VOWELS = "aeiouyăâêôơư"
+
+
+def find_tone_index(chars):
+    word = "".join(chars).lower()
+
+    for cluster, pos in SPECIAL_CLUSTERS:
+        idx = word.find(cluster)
+        if idx != -1:
+            return idx + pos
+
+    for i, c in enumerate(chars):
+        if c.lower() in PRIORITY:
             return i
 
+    vowels = [i for i, c in enumerate(chars) if c.lower() in ALL_VOWELS]
     if len(vowels) >= 2:
         return vowels[len(vowels)//2]
 
-    return vowels[0]
+    return vowels[0] if vowels else None
 
 
 def add_tone(word, mark):
