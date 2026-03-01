@@ -1,0 +1,5 @@
+
+export const initials: string[] = [
+  "", "ng", "h", "g", "c", "l", "tr", "đ", "n", "t", "th", "nh", "ch",
+  "d", "x", "kh", "s", "r", "m", "b", "v", "ph"
+];
